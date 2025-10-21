@@ -2,45 +2,62 @@
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
-
 require_once 'config.php';
 
-if (!empty($_SESSION['user'])) {
-  header("Location: " . ($_SESSION['role'] === 'admin' ? 'admin.php' : 'index.php'));
-  exit;
-}
+class UserAuth {
+  private $pdo;
+  public $error = "";
 
-$error = "";
+  public function __construct($pdo) {
+    $this->pdo = $pdo;
+  }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $username = trim($_POST['username'] ?? '');
-  $password = $_POST['password'] ?? '';
+  public function login($username, $password) {
+    if (empty($username) || empty($password)) {
+      $this->error = "All fields are required.";
+      return false;
+    }
 
-  if (empty($username) || empty($password)) {
-    $error = "All fields are required.";
-  } else {
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE username = :u OR email = :u LIMIT 1");
+    $stmt = $this->pdo->prepare("SELECT * FROM users WHERE username=:u OR email=:u LIMIT 1");
     $stmt->execute([':u' => $username]);
     $user = $stmt->fetch();
 
     if ($user && password_verify($password, $user['password'])) {
       $_SESSION['user_id'] = $user['id'];
       $_SESSION['user'] = $user['username'];
-      $_SESSION['role'] = $user['role'] ?? 'user';
+      $_SESSION['role'] = $user['role'];
       $_SESSION['phone'] = $user['phone'] ?? null;
       $_SESSION['address'] = $user['address'] ?? null;
       $_SESSION['state'] = $user['state'] ?? null;
       $_SESSION['district'] = $user['district'] ?? null;
       $_SESSION['pincode'] = $user['pincode'] ?? null;
-
-      header("Location: " . ($_SESSION['role'] === 'admin' ? 'admin.php' : 'index.php'));
-      exit;
+      return true;
     } else {
-      $error = "Invalid username/email or password.";
+      $this->error = "Invalid username/email or password.";
+      return false;
     }
   }
 }
+
+// redirect if already logged in
+if (!empty($_SESSION['user'])) {
+  header("Location: " . ($_SESSION['role'] === 'admin' ? 'admin.php' : 'index.php'));
+  exit;
+}
+
+$auth = new UserAuth($pdo);
+
+// handle login attempt
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  $username = trim($_POST['username'] ?? '');
+  $password = $_POST['password'] ?? '';
+  if ($auth->login($username, $password)) {
+    header("Location: " . ($_SESSION['role'] === 'admin' ? 'admin.php' : 'index.php'));
+    exit;
+  }
+}
 ?>
+
 <!doctype html>
 <html>
 <head>
