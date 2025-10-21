@@ -1,100 +1,77 @@
 <?php
+session_start();
 require_once 'config.php';
 
 class UserAuth {
-  private $pdo;
-  public $error = "";
+    private $pdo;
+    public $error = "";
 
-  public function __construct($pdo) { $this->pdo = $pdo; }
-
-  public function register($username, $email, $password, $confirm) {
-    if (empty($username) || empty($email) || empty($password) || empty($confirm)) {
-      $this->error = "All fields are required.";
-      return false;
-    }
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-      $this->error = "Invalid email format.";
-      return false;
-    }
-    if ($password !== $confirm) {
-      $this->error = "Passwords do not match.";
-      return false;
-    }
-    if (!preg_match('/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).{5,}$/', $password)) {
-      $this->error = "Password must include uppercase, lowercase, number, and be 5+ chars.";
-      return false;
+    public function __construct($pdo) {
+        $this->pdo = $pdo;
     }
 
-    $stmt = $this->pdo->prepare("SELECT id FROM users WHERE email = :email OR BINARY username = :username LIMIT 1");
-    $stmt->execute([':email'=>$email, ':username'=>$username]);
-    if ($stmt->fetch()) {
-      $this->error = "Username or email already exists.";
-      return false;
-    }
+    public function register($username, $email, $password, $confirm) {
+        if (empty($username) || empty($email) || empty($password) || empty($confirm)) {
+            $this->error = "All fields are required.";
+            return false;
+        }
 
-    $hash = password_hash($password, PASSWORD_DEFAULT);
-    $this->pdo->prepare("INSERT INTO users (username,email,password,role) VALUES (:u,:e,:p,'user')")
-      ->execute([':u'=>$username, ':e'=>$email, ':p'=>$hash]);
-    $_SESSION['user_id'] = $this->pdo->lastInsertId();
-    $_SESSION['user'] = $username;
-    $_SESSION['role'] = 'user';
-    return true;
-  }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->error = "Invalid email format.";
+            return false;
+        }
+
+        if ($password !== $confirm) {
+            $this->error = "Passwords do not match.";
+            return false;
+        }
+
+        if (!preg_match('/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).{5,}$/', $password)) {
+            $this->error = "Password must include uppercase, lowercase, number, and be 5+ chars.";
+            return false;
+        }
+
+        $stmt = $this->pdo->prepare("SELECT id FROM users WHERE email = :email OR BINARY username = :username LIMIT 1");
+        $stmt->execute([':email' => $email, ':username' => $username]);
+
+        if ($stmt->fetch()) {
+            $this->error = "Username or email already exists.";
+            return false;
+        }
+
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+        $this->pdo->prepare("INSERT INTO users (username,email,password,role) VALUES (:u,:e,:p,'user')")
+            ->execute([':u' => $username, ':e' => $email, ':p' => $hash]);
+
+        $_SESSION['user_id'] = $this->pdo->lastInsertId();
+        $_SESSION['user'] = $username;
+        $_SESSION['role'] = 'user';
+
+        return true;
+    }
 }
 
 if (!empty($_SESSION['user'])) {
-  header("Location: " . ($_SESSION['role']==='admin' ? 'admin.php' : 'index.php'));
-  exit;
+    header("Location: " . ($_SESSION['role'] === 'admin' ? 'admin.php' : 'index.php'));
+    exit;
 }
 
 $auth = new UserAuth($pdo);
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  if ($auth->register($_POST['username'], $_POST['email'], $_POST['password'], $_POST['confirm'])) {
-    header("Location: index.php");
-    exit;
-if (!empty($_SESSION['user'])) {
-  if (!empty($_SESSION['role']) && $_SESSION['role'] === 'admin') header("Location: admin.php");
-  else header("Location: index.php");
-  exit;
-}
-
 $error = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $username = trim($_POST['username'] ?? '');
-  $email = trim($_POST['email'] ?? '');
-  $password = $_POST['password'] ?? '';
-  $confirm = $_POST['confirm'] ?? '';
+    $username = trim($_POST['username'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $confirm = $_POST['confirm'] ?? '';
 
-  if (empty($username) || empty($email) || empty($password) || empty($confirm)) {
-    $error = "All fields are required.";
-  } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    $error = "Invalid email format.";
-  } elseif ($password !== $confirm) {
-    $error = "Passwords do not match.";
-  } elseif (!preg_match('/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).{5,}$/', $password)) {
-    $error = "Password must include 1 uppercase, 1 lowercase, 1 number, and be at least 5 characters.";
-  } else {
-    // Case-sensitive username + unique email check
-    $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email OR BINARY username = :username LIMIT 1");
-    $stmt->execute([':email'=>$email, ':username'=>$username]);
-
-    if ($stmt->fetch()) {
-      $error = "Username or email already exists.";
+    if (!$auth->register($username, $email, $password, $confirm)) {
+        $error = $auth->error;
     } else {
-      $hash = password_hash($password, PASSWORD_DEFAULT);
-      $pdo->prepare("INSERT INTO users (username,email,password,role) VALUES (:u,:e,:p,'user')")
-          ->execute([':u'=>$username, ':e'=>$email, ':p'=>$hash]);
-
-      $_SESSION['user_id'] = $pdo->lastInsertId();
-      $_SESSION['user'] = $username;
-      $_SESSION['role'] = 'user';
-      header("Location: index.php");
-      exit;
+        header("Location: index.php");
+        exit;
     }
-
-  }
 }
 ?>
 <!doctype html>
@@ -106,8 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 body{font-family:sans-serif;background:#fff6f8;color:#3a2c32;padding:40px}
 .container{max-width:400px;margin:0 auto;background:#fff;padding:20px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
 h1{text-align:center;color:#d26b8c}
-input[type=text],input[type=email],input[type=password]{width:100%;padding:10px;margin:6px 0;border:1px solid #f0d7df;border-radius:8px;font-size:15px}
-input[type=text],input[type=email],input[type=password]{width:100%;padding:10px;margin:8px 0;border:1px solid #f0d7df;border-radius:8px}
+input[type=text],input[type=email],input[type=password]{width:100%;padding:10px;margin:8px 0;border:1px solid #f0d7df;border-radius:8px;font-size:15px}
 .btn{background:#ffb6c1;border:none;padding:10px 16px;width:100%;border-radius:8px;cursor:pointer;font-weight:bold}
 .btn:hover{background:#f79db1}
 .error{background:#ffdede;padding:10px;border-radius:6px;color:#7a1a1a;margin-bottom:10px;text-align:center}
@@ -115,13 +91,16 @@ a{color:#d26b8c;text-decoration:none}
 a:hover{text-decoration:underline}
 .invalid{border-color:#e57373}
 .msg{font-size:13px;margin-bottom:6px;color:#e57373;display:none}
-
 </style>
 </head>
 <body>
 <div class="container">
 <h1>Create Account 💕</h1>
-<?php if(!empty($auth->error)): ?><div class="error"><?= htmlspecialchars($auth->error) ?></div><?php endif; ?>
+
+<?php if(!empty($error)): ?>
+<div class="error"><?= htmlspecialchars($error) ?></div>
+<?php endif; ?>
+
 <form method="post" id="registerForm" novalidate>
   <label>Username</label>
   <input type="text" id="username" name="username" placeholder="Username" required>
@@ -139,18 +118,12 @@ a:hover{text-decoration:underline}
   <input type="password" id="confirm" name="confirm" placeholder="Confirm Password" required>
   <div id="confirmMsg" class="msg"></div>
 
-
-<?php if(!empty($error)): ?><div class="error"><?= e($error) ?></div><?php endif; ?>
-<form method="post">
-  <input type="text" name="username" placeholder="Username" required>
-  <input type="email" name="email" placeholder="Email" required>
-  <input type="password" name="password" placeholder="Password" required>
-  <input type="password" name="confirm" placeholder="Confirm Password" required>
-
   <button class="btn" type="submit">Register</button>
 </form>
+
 <p style="text-align:center;margin-top:10px;">Already have an account? <a href="login.php">Login</a></p>
 </div>
+
 <script>
 document.addEventListener('DOMContentLoaded', ()=>{
   const username=document.getElementById('username');
@@ -204,8 +177,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   form.addEventListener('submit', e=>{
     validateUsername(); validateEmail(); validatePassword(); validateConfirm();
-    const invalid=document.querySelectorAll('.invalid');
-    if(invalid.length){
+    if(document.querySelectorAll('.invalid').length){
       e.preventDefault();
       alert("Please fix errors before submitting.");
     }
