@@ -223,7 +223,6 @@ $products = $pdo->query("SELECT * FROM products ORDER BY created_at DESC")->fetc
     </tbody>
   </table>
 </div>
-
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   const forms = document.querySelectorAll("form");
