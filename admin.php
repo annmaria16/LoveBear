@@ -138,7 +138,7 @@ $products = $pdo->query("SELECT * FROM products ORDER BY created_at DESC")->fetc
 <body>
 
 <header>
-  <div class="logo">LoveBear</div>
+   <div class="logo"><a src="admin.php">LoveBear</div>
   <nav>
     <a href="index.php">Home</a>
     <div style="text-align:right;margin-bottom:10px">

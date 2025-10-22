@@ -146,7 +146,7 @@ $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <body>
 
 <header>
-  <div class="logo">LoveBear</div>
+  <div class="logo"><a src="index.php">LoveBear</div>
   <nav>
     <a href="index.php">Home</a>
     <a href="cart.php">Cart (<?php echo array_sum($_SESSION['cart'] ?? []); ?>)</a>
